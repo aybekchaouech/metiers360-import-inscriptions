@@ -5,6 +5,7 @@ namespace App\Tests\FormApi;
 use App\FormApi\FormApiClient;
 use App\FormApi\FormApiException;
 use App\Tests\Support\FakeFormApi;
+use App\Tests\Support\GetsServices;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\HttpClient\Response\MockResponse;
 
@@ -14,15 +15,17 @@ use Symfony\Component\HttpClient\Response\MockResponse;
  */
 final class FormApiClientTest extends KernelTestCase
 {
+    use GetsServices;
+
     private FakeFormApi $api;
     private FormApiClient $client;
 
     protected function setUp(): void
     {
         self::bootKernel();
-        $this->api = self::getContainer()->get(FakeFormApi::class);
+        $this->api = self::service(FakeFormApi::class);
         $this->api->useDataset('v1');
-        $this->client = self::getContainer()->get(FormApiClient::class);
+        $this->client = self::service(FormApiClient::class);
     }
 
     public function testReadsAPage(): void

@@ -4,6 +4,7 @@ namespace App\Tests\Controller;
 
 use App\Import\InscriptionImporter;
 use App\Tests\Support\FakeFormApi;
+use App\Tests\Support\GetsServices;
 use App\Tests\Support\ResetsDatabase;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
@@ -14,6 +15,7 @@ use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
  */
 final class SessionInscriptionsControllerTest extends WebTestCase
 {
+    use GetsServices;
     use ResetsDatabase;
 
     private KernelBrowser $browser;
@@ -21,11 +23,10 @@ final class SessionInscriptionsControllerTest extends WebTestCase
     protected function setUp(): void
     {
         $this->browser = self::createClient();
-        $container = self::getContainer();
-        $this->resetDatabase($container->get(EntityManagerInterface::class));
+        $this->resetDatabase(self::service(EntityManagerInterface::class));
 
-        $api = $container->get(FakeFormApi::class);
-        $importer = $container->get(InscriptionImporter::class);
+        $api = self::service(FakeFormApi::class);
+        $importer = self::service(InscriptionImporter::class);
         $api->useDataset('v1');
         $importer->import();
         $api->useDataset('v2');

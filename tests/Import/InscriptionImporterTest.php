@@ -8,6 +8,7 @@ use App\Enum\ImportRunStatus;
 use App\Enum\InscriptionStatus;
 use App\Import\InscriptionImporter;
 use App\Tests\Support\FakeFormApi;
+use App\Tests\Support\GetsServices;
 use App\Tests\Support\ResetsDatabase;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -19,6 +20,7 @@ use Symfony\Component\HttpClient\Response\MockResponse;
  */
 final class InscriptionImporterTest extends KernelTestCase
 {
+    use GetsServices;
     use ResetsDatabase;
 
     private FakeFormApi $api;
@@ -28,9 +30,9 @@ final class InscriptionImporterTest extends KernelTestCase
     protected function setUp(): void
     {
         self::bootKernel();
-        $this->api = self::getContainer()->get(FakeFormApi::class);
-        $this->importer = self::getContainer()->get(InscriptionImporter::class);
-        $this->entityManager = self::getContainer()->get(EntityManagerInterface::class);
+        $this->api = self::service(FakeFormApi::class);
+        $this->importer = self::service(InscriptionImporter::class);
+        $this->entityManager = self::service(EntityManagerInterface::class);
         $this->resetDatabase($this->entityManager);
     }
 

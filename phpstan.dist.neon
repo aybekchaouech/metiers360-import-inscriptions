@@ -1,0 +1,10 @@
+includes:
+    # Teaches PHPStan how Doctrine works (e.g. the ORM assigns entity ids).
+    - vendor/phpstan/phpstan-doctrine/extension.neon
+
+parameters:
+    level: 6
+    paths:
+        - src
+        - tests
+        - migrations
