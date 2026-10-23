@@ -90,6 +90,11 @@ class InscriptionImporter
                 throw new ImportIncompleteException(sprintf('%d submissions read, but the API announced %d.', $imported, $run->getTotalAnnounced()));
             }
 
+            // Only now do we know the API was read in full: anything not seen has been removed from it.
+            $run->setRemoved($this->inscriptionRepository->markRemovedNotSeenSince(
+                array_values($this->operations),
+                $run->getStartedAt(),
+            ));
             $run->succeed($this->now());
         } catch (FormApiException|ImportIncompleteException $e) {
             // Pages already written stay in the database: the upsert makes that harmless.

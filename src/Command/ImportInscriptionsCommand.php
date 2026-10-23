@@ -52,6 +52,7 @@ class ImportInscriptionsCommand extends Command
             ['Created' => $run->getCreated()],
             ['Updated' => $run->getUpdated()],
             ['Unchanged' => $run->getUnchanged()],
+            ['Removed from the API' => $run->getRemoved()],
             ['Rejected' => $run->getRejected()],
             ['With anomalies' => $run->getWithAnomalies()],
         );
