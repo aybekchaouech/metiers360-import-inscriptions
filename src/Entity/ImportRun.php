@@ -51,6 +51,10 @@ class ImportRun
     #[ORM\Column]
     private int $withAnomalies = 0;
 
+    /** Submissions that could not be imported at all (no id, no session, no readable date). */
+    #[ORM\Column(options: ['default' => 0])]
+    private int $rejected = 0;
+
     #[ORM\Column(type: Types::TEXT, nullable: true)]
     private ?string $error = null;
 
@@ -160,6 +164,16 @@ class ImportRun
     public function incrementWithAnomalies(): void
     {
         ++$this->withAnomalies;
+    }
+
+    public function getRejected(): int
+    {
+        return $this->rejected;
+    }
+
+    public function incrementRejected(): void
+    {
+        ++$this->rejected;
     }
 
     public function getError(): ?string
