@@ -1,0 +1,46 @@
+services:
+  database:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: app
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: app
+    ports:
+      - "5432:5432"
+    volumes:
+      - database_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "app", "-d", "app"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  form-api:
+    image: node:22-alpine
+    command: ["node", "/app/server.mjs"]
+    volumes:
+      - ./mock-api:/app:ro
+    ports:
+      - "8090:8090"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8090/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  app:
+    build: docker/php
+    # Serves public/ once the Symfony project exists; until then, the container just stays up.
+    command: ["sh", "-c", "if [ -d public ]; then exec php -S 0.0.0.0:8000 -t public; else exec sleep infinity; fi"]
+    volumes:
+      - ./:/app
+    ports:
+      - "8000:8000"
+    depends_on:
+      database:
+        condition: service_healthy
+      form-api:
+        condition: service_healthy
+
+volumes:
+  database_data:
