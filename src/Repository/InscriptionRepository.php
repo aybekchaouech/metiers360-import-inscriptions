@@ -2,6 +2,7 @@
 
 namespace App\Repository;
 
+use App\Entity\ImportRun;
 use App\Entity\Inscription;
 use App\Entity\Operation;
 use App\Entity\Session;
@@ -57,38 +58,29 @@ class InscriptionRepository extends ServiceEntityRepository
     }
 
     /**
-     * Marks as removed the inscriptions of these operations that the last complete import did not see.
-     * Only to be called after a complete import: otherwise a page that failed would look like removals.
+     * Inscriptions of these operations that this import run did not see, and not already marked
+     * as removed. After a complete run, these are the ones the API no longer returns.
      *
      * @param list<Operation> $operations
      *
-     * @return int number of inscriptions marked as removed
+     * @return list<Inscription>
      */
-    public function markRemovedNotSeenSince(array $operations, \DateTimeImmutable $since): int
+    public function findNotSeenBy(array $operations, ImportRun $run): array
     {
         if ([] === $operations) {
-            return 0;
+            return [];
         }
 
-        $sessionsOfOperations = $this->getEntityManager()->createQueryBuilder()
-            ->select('s.id')
-            ->from(Session::class, 's')
+        /** @var list<Inscription> */
+        return $this->createQueryBuilder('i')
+            ->join('i.session', 's')
             ->where('s.operation IN (:operations)')
-            ->getDQL();
-
-        /** @var int $removed */
-        $removed = $this->getEntityManager()->createQueryBuilder()
-            ->update(Inscription::class, 'i')
-            ->set('i.status', ':removed')
-            ->where('i.lastSeenAt < :since')
+            ->andWhere('i.lastSeenBy IS NULL OR i.lastSeenBy <> :run')
             ->andWhere('i.status <> :removed')
-            ->andWhere(sprintf('i.session IN (%s)', $sessionsOfOperations))
-            ->setParameter('removed', InscriptionStatus::Removed->value)
-            ->setParameter('since', $since)
             ->setParameter('operations', $operations)
+            ->setParameter('run', $run)
+            ->setParameter('removed', InscriptionStatus::Removed->value)
             ->getQuery()
-            ->execute();
-
-        return $removed;
+            ->getResult();
     }
 }

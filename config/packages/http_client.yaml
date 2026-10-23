@@ -15,3 +15,9 @@ framework:
                     max_retries: 3
                     delay: 1000
                     multiplier: 2
+
+when@test:
+    framework:
+        http_client:
+            # Only the network is replaced; the scoped client and its retries are the real ones.
+            mock_response_factory: App\Tests\Support\FakeFormApi

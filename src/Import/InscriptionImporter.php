@@ -48,6 +48,9 @@ class InscriptionImporter
     {
         $this->operations = [];
         $this->sessions = [];
+        // Start from the database, not from entities a previous run (or another process) left
+        // in memory with possibly outdated values.
+        $this->entityManager->clear();
 
         $run = new ImportRun($this->now());
         $this->entityManager->persist($run);
@@ -91,10 +94,12 @@ class InscriptionImporter
             }
 
             // Only now do we know the API was read in full: anything not seen has been removed from it.
-            $run->setRemoved($this->inscriptionRepository->markRemovedNotSeenSince(
-                array_values($this->operations),
-                $run->getStartedAt(),
-            ));
+            // Changed through the ORM (not a bulk UPDATE) so that entities in memory stay in sync.
+            $notSeen = $this->inscriptionRepository->findNotSeenBy(array_values($this->operations), $run);
+            foreach ($notSeen as $inscription) {
+                $inscription->setStatus(InscriptionStatus::Removed);
+            }
+            $run->setRemoved(\count($notSeen));
             $run->succeed($this->now());
         } catch (FormApiException|ImportIncompleteException $e) {
             // Pages already written stay in the database: the upsert makes that harmless.
@@ -152,7 +157,7 @@ class InscriptionImporter
             $run->incrementUnchanged();
         }
 
-        $inscription->setLastSeenAt($run->getStartedAt());
+        $inscription->markSeenBy($run);
     }
 
     /**

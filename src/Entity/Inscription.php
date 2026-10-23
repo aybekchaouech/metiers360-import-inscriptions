@@ -79,9 +79,18 @@ class Inscription
     #[ORM\Column(type: Types::DATETIME_IMMUTABLE)]
     private \DateTimeImmutable $sourceUpdatedAt;
 
-    /** Last import run that saw this submission. Used to detect submissions removed from the API. */
+    /** When the submission was last returned by the API. Informative. */
     #[ORM\Column(type: Types::DATETIME_IMMUTABLE)]
     private \DateTimeImmutable $lastSeenAt;
+
+    /**
+     * Import run that last saw this submission: used to detect submissions removed from the API.
+     * A run reference rather than a date, because dates are stored to the second and two runs
+     * can start within the same second.
+     */
+    #[ORM\ManyToOne]
+    #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
+    private ?ImportRun $lastSeenBy = null;
 
     public function __construct(string $externalId)
     {
@@ -250,5 +259,16 @@ class Inscription
     public function setLastSeenAt(\DateTimeImmutable $lastSeenAt): void
     {
         $this->lastSeenAt = $lastSeenAt;
+    }
+
+    public function getLastSeenBy(): ?ImportRun
+    {
+        return $this->lastSeenBy;
+    }
+
+    public function markSeenBy(ImportRun $run): void
+    {
+        $this->lastSeenBy = $run;
+        $this->lastSeenAt = $run->getStartedAt();
     }
 }
