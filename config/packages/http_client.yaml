@@ -1,0 +1,17 @@
+framework:
+    http_client:
+        scoped_clients:
+            # Autowired as "HttpClientInterface $formApiClient".
+            form_api.client:
+                base_uri: '%env(FORM_API_BASE_URL)%'
+                headers:
+                    Accept: 'application/json'
+                # Page 8 of the mock API sometimes answers after 20 s: give up early and retry instead.
+                timeout: 5
+                max_duration: 10
+                # Retries 5xx responses and transport errors (timeouts, network) on GET, never a 400.
+                # Waits 1 s, then 2 s, then 4 s between attempts.
+                retry_failed:
+                    max_retries: 3
+                    delay: 1000
+                    multiplier: 2
