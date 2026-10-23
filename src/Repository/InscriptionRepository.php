@@ -20,6 +20,43 @@ class InscriptionRepository extends ServiceEntityRepository
     }
 
     /**
+     * Every inscription of a session, whatever its status, in registration order.
+     *
+     * @return list<Inscription>
+     */
+    public function findBySessionInRegistrationOrder(Session $session): array
+    {
+        /** @var list<Inscription> */
+        return $this->createQueryBuilder('i')
+            ->where('i.session = :session')
+            ->setParameter('session', $session)
+            ->orderBy('i.sourceCreatedAt', 'ASC')
+            ->addOrderBy('i.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
+     * Active registrations of all the sessions of an operation: needed to spot
+     * people registered to several sessions.
+     *
+     * @return list<Inscription>
+     */
+    public function findActiveByOperation(Operation $operation): array
+    {
+        /** @var list<Inscription> */
+        return $this->createQueryBuilder('i')
+            ->addSelect('s')
+            ->join('i.session', 's')
+            ->where('s.operation = :operation')
+            ->andWhere('i.status = :submitted')
+            ->setParameter('operation', $operation)
+            ->setParameter('submitted', InscriptionStatus::Submitted->value)
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
      * Marks as removed the inscriptions of these operations that the last complete import did not see.
      * Only to be called after a complete import: otherwise a page that failed would look like removals.
      *
