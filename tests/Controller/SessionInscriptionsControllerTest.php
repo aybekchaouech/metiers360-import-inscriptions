@@ -109,6 +109,46 @@ final class SessionInscriptionsControllerTest extends WebTestCase
         self::assertSame(['birth_date_unreadable'], $byId['sub_e9iwdau4pc']['anomalies']);
     }
 
+    /**
+     * The team must know what to check and whom to contact (product answer, point 5).
+     */
+    public function testListsWhoToCheckWithTheReasonAndHowToReachThem(): void
+    {
+        $toCheck = array_column($this->get('/api/sessions/ses_02/inscriptions')['to_check'], null, 'id');
+
+        // Kylian Bernard: invalid email, only the phone is left.
+        self::assertSame(['email_invalid'], $toCheck['sub_22zuv2cqwv']['reasons']);
+        self::assertSame(['phone'], $toCheck['sub_22zuv2cqwv']['reachable_by']);
+        self::assertNull($toCheck['sub_22zuv2cqwv']['email']);
+        // Tom Blanc: born on February 30th.
+        self::assertSame(['birth_date_unreadable'], $toCheck['sub_e9iwdau4pc']['reasons']);
+        // Théo Robin: also registered in Bourg-en-Bresse.
+        self::assertSame(['multiple_sessions'], $toCheck['sub_eezq45rehe']['reasons']);
+        self::assertSame(['sub_tyb4hh5nvc'], $toCheck['sub_eezq45rehe']['related']);
+
+        foreach ($toCheck as $entry) {
+            self::assertNotSame([], $entry['reasons'], 'Nobody is listed without a reason.');
+        }
+    }
+
+    public function testSameSessionDuplicatesAreListedWithTheRegistrationKept(): void
+    {
+        $toCheck = array_column($this->get('/api/sessions/ses_03/inscriptions')['to_check'], null, 'id');
+
+        self::assertSame(['same_session_duplicate'], $toCheck['sub_fy6dms9s36']['reasons']);
+        self::assertSame('duplicate', $toCheck['sub_fy6dms9s36']['place']);
+        self::assertSame('sub_msaei5w8k7', $toCheck['sub_fy6dms9s36']['duplicate_of']);
+        self::assertCount(5, $toCheck);
+    }
+
+    public function testCancelledOrRemovedRegistrationsNeedNoAction(): void
+    {
+        $toCheck = array_column($this->get('/api/sessions/ses_01/inscriptions')['to_check'], null, 'id');
+
+        // Rayan Laurent was removed from the API: nothing to do for the team.
+        self::assertArrayNotHasKey('sub_5m3rfhnkfb', $toCheck);
+    }
+
     public function testTellsWhenTheDataWasLastImported(): void
     {
         $freshness = $this->get('/api/sessions/ses_02/inscriptions')['data_freshness'];

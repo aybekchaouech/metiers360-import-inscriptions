@@ -54,6 +54,7 @@ class SessionInscriptionsReport
             ],
             'data_freshness' => $this->dataFreshness(),
             'summary' => $this->summary($session, $inscriptions, $places, $duplicates),
+            'to_check' => $this->toCheck($inscriptions, $places, $duplicates),
             'inscriptions' => array_map(
                 fn (Inscription $i): array => $this->inscription($i, $session, $places[$i->getExternalId()] ?? null, $duplicates),
                 $inscriptions,
@@ -160,6 +161,54 @@ class SessionInscriptionsReport
                 'registered_to_several_sessions' => $multipleSessions,
             ],
         ];
+    }
+
+    /**
+     * The registrations the operations team has to look at, with the reasons and the ways to reach
+     * the person: what used to be found by scanning the spreadsheet. Only active registrations:
+     * cancelled and removed ones need no action.
+     *
+     * @param list<Inscription>    $inscriptions in registration order
+     * @param array<string, Place> $places
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function toCheck(array $inscriptions, array $places, DuplicateReport $duplicates): array
+    {
+        $toCheck = [];
+        foreach ($inscriptions as $inscription) {
+            $place = $places[$inscription->getExternalId()] ?? null;
+            if (null === $place) {
+                continue;
+            }
+            $reasons = [
+                ...$inscription->getAnomalies(),
+                ...array_map(static fn (DuplicateFlag $f): string => $f->value, $duplicates->flagsFor($inscription->getExternalId())),
+            ];
+            if ([] === $reasons) {
+                continue;
+            }
+
+            $toCheck[] = [
+                'id' => $inscription->getExternalId(),
+                'first_name' => $inscription->getFirstName(),
+                'last_name' => $inscription->getLastName(),
+                'place' => $place->value,
+                'reasons' => $reasons,
+                // An empty list means the person cannot be reached: their structure is the only way.
+                'reachable_by' => array_keys(array_filter([
+                    'email' => null !== $inscription->getEmail(),
+                    'phone' => null !== $inscription->getPhone(),
+                ])),
+                'email' => $inscription->getEmail(),
+                'phone' => $inscription->getPhone(),
+                'structure' => $inscription->getStructureName(),
+                'duplicate_of' => $duplicates->duplicateOf($inscription->getExternalId()),
+                'related' => $duplicates->relatedTo($inscription->getExternalId()),
+            ];
+        }
+
+        return $toCheck;
     }
 
     /**
