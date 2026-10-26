@@ -170,6 +170,33 @@ final class InscriptionImporterTest extends KernelTestCase
         self::assertSame(8, (int) $count);
     }
 
+    /**
+     * A submission that cannot be imported is still a real person: it is kept with the reason,
+     * so that the operations team can find and contact them.
+     */
+    public function testRejectedSubmissionsAreKeptWithTheirReason(): void
+    {
+        $this->api->useDataset('v1');
+        $this->api->addSubmission(['id' => 'sub_no_session', 'status' => 'submitted', 'created_at' => '2026-10-20T10:00:00Z', 'answers' => ['first_name' => 'Nora', 'email' => 'nora@example.com']]);
+        $this->api->addSubmission(['status' => 'submitted', 'answers' => ['first_name' => 'Sans', 'last_name' => 'Identifiant']]);
+
+        $run = $this->importer->import();
+
+        // Rejected submissions count in the completeness check: the run is complete.
+        self::assertSame(ImportRunStatus::Success, $run->getStatus(), (string) $run->getError());
+        self::assertSame(293, $run->getCreated());
+        self::assertSame(2, $run->getRejected());
+
+        $this->entityManager->clear();
+        $saved = $this->entityManager->getRepository(ImportRun::class)->find($run->getId());
+        self::assertNotNull($saved);
+        $rejected = $saved->getRejectedSubmissions();
+        self::assertCount(2, $rejected);
+        self::assertStringContainsString('no usable session', $rejected[0]['reason']);
+        self::assertSame('nora@example.com', $rejected[0]['submission']['answers']['email'], 'What the API sent must be kept to contact the person.');
+        self::assertStringContainsString('without "id"', $rejected[1]['reason']);
+    }
+
     public function testEveryRunIsRecorded(): void
     {
         $this->api->useDataset('v1');

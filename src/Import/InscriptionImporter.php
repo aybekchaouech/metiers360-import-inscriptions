@@ -121,8 +121,8 @@ class InscriptionImporter
         foreach ($page->submissions as $raw) {
             try {
                 $submission = $this->normalizer->normalize($raw);
-            } catch (InvalidSubmissionException) {
-                $run->incrementRejected();
+            } catch (InvalidSubmissionException $e) {
+                $run->reject($e->getMessage(), $raw);
                 continue;
             }
 

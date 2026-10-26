@@ -57,6 +57,14 @@ class ImportInscriptionsCommand extends Command
             ['With anomalies' => $run->getWithAnomalies()],
         );
 
+        if ([] !== $run->getRejectedSubmissions()) {
+            $io->warning(sprintf('%d submission(s) could not be imported. They are kept in import run #%d (column rejected_submissions):', $run->getRejected(), $run->getId()));
+            $io->listing(array_map(
+                static fn (array $rejected): string => sprintf('%s %s', $rejected['reason'], mb_strimwidth((string) json_encode($rejected['submission'], \JSON_UNESCAPED_UNICODE), 0, 160, '…')),
+                $run->getRejectedSubmissions(),
+            ));
+        }
+
         if (ImportRunStatus::Success !== $run->getStatus()) {
             $io->error(sprintf('Import #%d failed: %s', $run->getId(), $run->getError()));
 

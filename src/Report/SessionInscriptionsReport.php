@@ -208,6 +208,8 @@ class SessionInscriptionsReport
         return [
             'last_successful_import_at' => $this->dateTime($lastSuccess?->getFinishedAt()),
             'last_import_status' => $last?->getStatus()->value,
+            // Rejected submissions belong to no session: this tells the team to look at the import log.
+            'submissions_rejected_by_last_import' => $lastSuccess?->getRejected(),
         ];
     }
 

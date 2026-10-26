@@ -55,6 +55,15 @@ class ImportRun
     #[ORM\Column(options: ['default' => 0])]
     private int $rejected = 0;
 
+    /**
+     * Why each rejected submission was refused, with what the API sent: a rejected registration is
+     * still a real person the operations team may have to contact, it must not vanish silently.
+     *
+     * @var list<array{reason: string, submission: array<string, mixed>}>
+     */
+    #[ORM\Column(type: Types::JSON, options: ['jsonb' => true, 'default' => '[]'])]
+    private array $rejectedSubmissions = [];
+
     #[ORM\Column(type: Types::TEXT, nullable: true)]
     private ?string $error = null;
 
@@ -171,9 +180,21 @@ class ImportRun
         return $this->rejected;
     }
 
-    public function incrementRejected(): void
+    /**
+     * @param array<string, mixed> $submission the submission exactly as received
+     */
+    public function reject(string $reason, array $submission): void
     {
         ++$this->rejected;
+        $this->rejectedSubmissions[] = ['reason' => $reason, 'submission' => $submission];
+    }
+
+    /**
+     * @return list<array{reason: string, submission: array<string, mixed>}>
+     */
+    public function getRejectedSubmissions(): array
+    {
+        return $this->rejectedSubmissions;
     }
 
     public function getError(): ?string

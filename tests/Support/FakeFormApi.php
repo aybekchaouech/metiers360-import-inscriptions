@@ -45,6 +45,16 @@ final class FakeFormApi
         $this->submissions = $data['submissions'];
     }
 
+    /**
+     * Appends a submission (e.g. a malformed one) after those of the dataset.
+     *
+     * @param array<string, mixed> $submission
+     */
+    public function addSubmission(array $submission): void
+    {
+        $this->submissions[] = $submission;
+    }
+
     public function failOnceWith(int $page, MockResponse $response): void
     {
         $this->failuresBefore[$page][] = $response;
