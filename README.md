@@ -1,78 +1,86 @@
-# Exercice technique — développeur·se back-end / fullstack (Symfony)
+# Import des inscriptions : Métiers 360
 
-## Le cadre
+La commande `app:inscriptions:import` importe les inscriptions de l'API du formulaire dans PostgreSQL ; elle
+peut être relancée sans créer de doublon. L'endpoint `GET /api/sessions/{id}/inscriptions` (`{id}` = id de
+l'API, ex. `ses_03`) renvoie pour une session une synthèse, la liste des personnes à vérifier ou à recontacter,
+et tous les inscrits.
 
-- **Effort : une demi-journée de votre attention, pas plus.** Le temps où un agent travaille seul ne
-  compte pas ; comptez celui que vous passez à lire, cadrer, guider, relire et tester. Nous ne cherchons
-  pas un rendu exhaustif. S'arrêter à temps et expliquer ce qui manque fait partie de l'exercice.
-- **Délai de rendu : 7 jours** après réception du sujet, à organiser comme vous le souhaitez.
-- **La spécification est volontairement incomplète.** C'est notre quotidien : le besoin arrive rarement
-  sous une forme définitive. Vous pouvez nous poser des questions par mail à tout moment
-  (réponse sous une demi-journée ouvrée ; pour les questions posées les 22 et 23 octobre, réponse le
-  lundi 26). Vous pouvez aussi trancher vous-même : notez alors l'hypothèse prise.
-- **Les assistants IA sont autorisés**, et même bienvenus : c'est notre façon de travailler. Dites-nous
-  simplement comment vous les avez utilisés et ce que vous avez vérifié par vous-même.
-- Ce code ne sera jamais utilisé en production. Il sert uniquement de support au débrief.
+- **Stack** (celle demandée) : PHP 8.3, Symfony 6.4, Doctrine ORM 3 et Migrations, PostgreSQL 17, sous Docker Compose.
+- **Qualité** : 70 tests PHPUnit (unitaires, intégration, fonctionnels) ; PHPStan niveau 6 sans erreur.
 
-## Le contexte
+## Lancer le projet
 
-Métiers 360 organise des **opérations** : des journées de découverte des métiers en casque de réalité
-virtuelle, montées avec une région ou un réseau (lycées, missions locales, agences France Travail).
-Chaque opération propose plusieurs **sessions** (date, lieu, nombre de places).
+```bash
+docker compose up -d
+docker compose exec app composer install
+docker compose exec app php bin/console doctrine:migrations:migrate --no-interaction
+docker compose exec app php bin/console app:inscriptions:import
+docker compose exec app php bin/console app:inscriptions:import
+curl http://localhost:8000/api/sessions/ses_03/inscriptions
+```
 
-Les inscriptions sont collectées par un outil de formulaire externe, qui expose une API REST paginée.
-Aujourd'hui, l'équipe opérations exporte un fichier à la main et le retravaille dans un tableur. Nous
-voulons importer automatiquement ces inscriptions dans notre base, pour que l'équipe dispose d'une
-vue fiable de chaque session.
+```bash
+docker compose exec app php bin/console doctrine:database:create --env=test
+docker compose exec app php bin/console doctrine:migrations:migrate --env=test --no-interaction
+docker compose exec app php bin/phpunit
+docker compose exec app vendor/bin/phpstan analyse
+```
 
-## Ce que nous vous fournissons
+## Les trois hypothèses qui ont le plus pesé
 
-Une archive de démarrage, à versionner vous-même dès le début, contenant :
+Le directeur produit a confirmé que l'équipe n'avait de règle arrêtée sur aucun de ces points : ce sont des choix.
 
-- un `docker-compose.yml` avec PostgreSQL 17, un conteneur PHP 8.3 (Composer) et un **serveur simulant
-  l'API du formulaire** ;
-- la documentation de cette API (`GET /submissions?page=N`, pagination par numéro de page) ;
-- un jeu de données d'environ 300 inscriptions réparties sur une opération et quatre sessions.
+1. **Aucune inscription ne disparaît sans que l'équipe le sache.** Un champ douteux (e-mail invalide,
+   `12/03/2008`, `2008-02-30`, type de structure inconnu) devient `null`, une anomalie est notée et la réponse
+   brute est gardée. Une inscription inimportable (sans id, session ou date lisible) est conservée avec sa
+   raison dans le journal des imports et signalée en fin de commande. L'endpoint liste les personnes à vérifier,
+   avec la raison et le moyen de les joindre.
+2. **Une personne = e-mail (sans casse) + prénom (sans accents).** L'e-mail seul ne suffit pas : des frères et
+   sœurs partagent `famille.xxx@`. Inscrite deux fois à la même session : une seule place. Inscrite à deux
+   sessions (autorisé par le formulaire) : une place dans chacune, signalée. Prénom proche (« aybek » /
+   « aybec ») ou même date de naissance : signalée, jamais fusionnée. Les places sont attribuées dans l'ordre
+   d'inscription, le reste est en liste d'attente : Belley a 49 inscriptions pour 40 places, mais 46 personnes,
+   donc 6 en attente et non 9.
+3. **Une inscription absente de l'API est « retirée », jamais supprimée, et seulement après un import
+   complet** : toutes les pages lues, et autant d'inscriptions que le total annoncé. Sinon, une page en panne
+   ferait disparaître 25 personnes. Un import incomplet échoue avec un code de sortie non nul.
 
-Le serveur simulé se comporte comme un vrai service tiers : les données ne sont pas parfaitement
-propres et l'API n'est pas toujours disponible.
+## Laissé de côté volontairement
 
-## Ce que nous vous demandons
+- **Authentification de l'endpoint.** Il expose les e-mails et téléphones de mineurs, nécessaires pour les
+  recontacter ; la date de naissance n'est pas exposée (âge et « mineur » suffisent). Hors périmètre d'un
+  exercice jamais mis en production, mais indispensable avant tout usage réel.
+- **Messenger** : 300 inscriptions s'importent en une dizaine de secondes ; une commande synchrone sous verrou suffit.
+- **Alerte en cas d'échec** : l'import échoué est tracé (`import_run`, code de sortie 1), mais personne n'est prévenu.
+- **Numéros étrangers** : seuls les numéros français sont normalisés, les autres sont signalés.
+- **Un commentaire des données demande à « l'outil d'import » d'exclure `@lycee-les-charmilles.test`** : non
+  appliqué, c'est une saisie utilisateur, pas une spécification.
 
-1. **Une commande Symfony** `app:inscriptions:import` qui importe les inscriptions de l'API dans
-   PostgreSQL. Elle doit pouvoir être relancée (en cron, par exemple) sans créer de doublons.
-2. **Le modèle de données** (entités Doctrine et migrations) qui vous paraît adapté.
-3. **Un endpoint** `GET /api/sessions/{id}/inscriptions` qui renvoie, pour une session, la liste des
-   inscrit·es et une synthèse utile à l'équipe opérations.
-4. **Des tests** sur ce qui vous paraît le plus risqué.
+## Avec une journée de plus
 
-Stack attendue, celle de nos services en production : **PHP 8.3, Symfony 6.4 (LTS), Doctrine ORM 3
-et Doctrine Migrations, PostgreSQL 17, PHPUnit**, le tout sous Docker Compose. Pour appeler l'API,
-le composant HttpClient de Symfony suffit.
+- Authentification et rôle « opérations » sur l'endpoint, et revue RGPD avec l'équipe.
+- Alerte (mail, Slack) quand un import échoue ou que les données datent de plus de quelques heures.
+- Export CSV de la session et de la liste à recontacter, puisque l'équipe travaille aujourd'hui dans un tableur.
+- Tests plus rapides (`dama/doctrine-test-bundle`, délais de retry réduits en test) : la suite prend environ 50 s.
+- Messenger avec un message par page si le volume grossit.
 
-Le reste est à votre choix, à condition de l'argumenter. Pour information, nous utilisons
-Symfony Messenger (avec des files de messages) pour les traitements asynchrones, et PHPStan
-(niveau 6) pour l'analyse statique : les utiliser n'est pas obligatoire, mais c'est bienvenu.
+## Utilisation de l'IA
 
-## À rendre
+J'ai travaillé avec Claude Code.
 
-- Un lien vers un dépôt Git (GitLab, GitHub) ou une archive, avec l'historique des commits.
-- Un `README` qui remplace celui de l'archive (une copie de ce sujet). Nous le lisons avant le débrief
-  pour préparer nos questions : écrivez-le pour quelqu'un qui le découvre et dispose de cinq minutes.
-  La place est volontairement limitée, à vous de choisir ce qui mérite d'y figurer :
-  - comment lancer le projet (les commandes, sans commentaire) ;
-  - les **trois** hypothèses qui ont le plus pesé, là où la spécification était muette ;
-  - ce que vous avez volontairement laissé de côté, et pourquoi ;
-  - ce que vous feriez avec une journée de plus ;
-  - comment vous avez utilisé l'IA : ce que vous avez délégué, ce que vous avez vérifié vous-même, et
-    **une** décision prise contre une proposition de l'outil, la plus marquante ;
-  - le temps d'attention que vous y avez consacré, et en combien de sessions.
-- Si vous avez écrit des fichiers de contexte, des spécifications ou des consignes pour un agent IA
-  (`CLAUDE.md`, `AGENTS.md`, prompts…), vous pouvez les joindre. C'est facultatif.
+- **Délégué** : l'analyse du kit et des données (scripts comparant v1 et v2), l'écriture du code et des tests,
+  les commandes d'installation, la rédaction de ce README à partir de mes notes.
+- **Vérifié moi-même** : j'ai relu chaque étape avant de la commiter, vérifié
+  la base dans DBeaver, les réponses de l'API et ses logs, et remis en cause les règles métier proposées.
+  Les tests ont aussi trouvé trois bugs dans le code généré pour les inscriptions retirées (dates stockées à la
+  seconde, entités périmées en mémoire) : ce code « marchait » lors des essais manuels, par chance.
+- **Une décision contre l'outil** : pour reconnaître une même personne, l'IA proposait « même e-mail + même
+  prénom ». J'ai testé la règle avec mon propre cas : si je m'inscris avec `aybek@gmail.com` sous « aybek », puis
+  sous « aybec » à cause d'une faute de frappe, les deux inscriptions passeraient pour deux frères et sœurs. J'ai
+  donc demandé une catégorie « doublon probable » (prénom proche ou même date de naissance), signalée à l'équipe
+  mais jamais fusionnée automatiquement.
 
-## La suite
+## Temps passé
 
-Un débrief d'une heure en visio : vous nous présentez vos choix, puis nous faisons évoluer le besoin
-ensemble, en direct, sur votre code. Pas de piège : nous voulons voir comment vous raisonnez sur
-un sujet que vous connaissez déjà bien. Pendant cette partie, vous pouvez utiliser vos outils
-habituels, assistants IA compris, en partageant votre écran.
+Environ 5 h d'attention, en 2 sessions : la première, la plus longue, pour réaliser le projet ; la seconde pour
+les corrections faites après la réponse du directeur produit, et pour ce README.
