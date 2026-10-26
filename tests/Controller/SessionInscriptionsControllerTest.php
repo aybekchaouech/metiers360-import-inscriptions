@@ -104,9 +104,26 @@ final class SessionInscriptionsControllerTest extends WebTestCase
     {
         $byId = array_column($this->get('/api/sessions/ses_02/inscriptions')['inscriptions'], null, 'id');
 
-        // Born on February 30th.
-        self::assertNull($byId['sub_e9iwdau4pc']['birth_date']);
+        // Born on February 30th: age unknown, and the team is told why.
+        self::assertNull($byId['sub_e9iwdau4pc']['age_at_session']);
+        self::assertNull($byId['sub_e9iwdau4pc']['minor']);
         self::assertSame(['birth_date_unreadable'], $byId['sub_e9iwdau4pc']['anomalies']);
+    }
+
+    /**
+     * Data minimisation: the age is enough to organise a session, the birth date of minors is not exposed.
+     */
+    public function testBirthDatesAreNotExposed(): void
+    {
+        $this->browser->request('GET', '/api/sessions/ses_04/inscriptions');
+        $content = (string) $this->browser->getResponse()->getContent();
+        $body = json_decode($content, true, flags: \JSON_THROW_ON_ERROR);
+
+        self::assertStringNotContainsString('birth_date"', $content);
+        $byId = array_column($body['inscriptions'], null, 'id');
+        // Nicolas Muller, born on 2011-04-10: 15 on November 26th, 2026.
+        self::assertSame(15, $byId['sub_y3af79vexx']['age_at_session']);
+        self::assertTrue($byId['sub_y3af79vexx']['minor']);
     }
 
     /**

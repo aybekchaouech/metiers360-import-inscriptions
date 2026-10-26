@@ -227,7 +227,8 @@ class SessionInscriptionsReport
             'last_name' => $inscription->getLastName(),
             'email' => $inscription->getEmail(),
             'phone' => $inscription->getPhone(),
-            'birth_date' => $inscription->getBirthDate()?->format('Y-m-d'),
+            // Data minimisation: many registrants are minors, and organising a session needs their
+            // age, not their birth date. The birth date stays in the database (age, duplicates).
             'age_at_session' => $age,
             'minor' => null === $age ? null : $age < self::ADULT_AGE,
             'structure' => [
