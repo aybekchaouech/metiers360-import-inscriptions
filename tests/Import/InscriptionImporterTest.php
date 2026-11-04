@@ -92,6 +92,25 @@ final class InscriptionImporterTest extends KernelTestCase
         self::assertSame(InscriptionStatus::Removed, $this->inscription('sub_prefs26msk')->getStatus());
     }
 
+    public function testSessionJoinDateChangesOnlyWhenThePersonMoves(): void
+    {
+        $this->api->useDataset('v1');
+        $this->importer->import();
+        $this->api->useDataset('v2');
+        $this->importer->import();
+
+        $this->entityManager->clear();
+        // Moved from Oyonnax to Belley: queues from the day of the change.
+        $moved = $this->inscription('sub_haczwpup6e');
+        self::assertEquals(new \DateTimeImmutable('2026-10-19T14:55:00Z'), $moved->getSessionJoinedAt());
+        // Last name corrected, same session: keeps its rank.
+        $corrected = $this->inscription('sub_rxpfpbs4ws');
+        self::assertEquals($corrected->getSourceCreatedAt(), $corrected->getSessionJoinedAt());
+        // Created in v2: joined at creation.
+        $created = $this->inscription('sub_qsg3ecrejt');
+        self::assertEquals(new \DateTimeImmutable('2026-10-19T10:33:00Z'), $created->getSessionJoinedAt());
+    }
+
     /**
      * The key safety rule: if a page cannot be read, nothing may be marked as removed,
      * otherwise its 25 registrations would disappear from the counts.

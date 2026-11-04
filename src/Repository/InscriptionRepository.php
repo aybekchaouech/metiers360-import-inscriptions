@@ -21,7 +21,8 @@ class InscriptionRepository extends ServiceEntityRepository
     }
 
     /**
-     * Every inscription of a session, whatever its status, in registration order.
+     * Every inscription of a session, whatever its status, in registration order: the order in
+     * which people joined this session.
      *
      * @return list<Inscription>
      */
@@ -31,7 +32,8 @@ class InscriptionRepository extends ServiceEntityRepository
         return $this->createQueryBuilder('i')
             ->where('i.session = :session')
             ->setParameter('session', $session)
-            ->orderBy('i.sourceCreatedAt', 'ASC')
+            ->orderBy('i.sessionJoinedAt', 'ASC')
+            ->addOrderBy('i.sourceCreatedAt', 'ASC')
             ->addOrderBy('i.id', 'ASC')
             ->getQuery()
             ->getResult();

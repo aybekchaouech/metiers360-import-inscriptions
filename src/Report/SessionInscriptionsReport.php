@@ -223,6 +223,8 @@ class SessionInscriptionsReport
             'status' => $inscription->getStatus()->value,
             'place' => $place?->value,
             'registered_at' => $this->dateTime($inscription->getSourceCreatedAt()),
+            // Gives the place: differs from registered_at for people who moved from another session.
+            'joined_session_at' => $this->dateTime($inscription->getSessionJoinedAt()),
             'first_name' => $inscription->getFirstName(),
             'last_name' => $inscription->getLastName(),
             'email' => $inscription->getEmail(),

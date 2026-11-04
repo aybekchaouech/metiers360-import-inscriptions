@@ -71,9 +71,17 @@ class Inscription
     #[ORM\Column(type: Types::JSON, options: ['jsonb' => true])]
     private array $rawData = [];
 
-    /** Submission date in the API, UTC. Also gives the waiting-list order. */
+    /** Submission date in the API, UTC. */
     #[ORM\Column(type: Types::DATETIME_IMMUTABLE)]
     private \DateTimeImmutable $sourceCreatedAt;
+
+    /**
+     * When the person joined their current session, UTC: gives the waiting-list order.
+     * The submission date at first, the date of the change when they move to another session:
+     * someone moving in must not overtake the people already registered to that session.
+     */
+    #[ORM\Column(type: Types::DATETIME_IMMUTABLE)]
+    private \DateTimeImmutable $sessionJoinedAt;
 
     /** Last modification in the API, UTC. Used to skip unchanged submissions. */
     #[ORM\Column(type: Types::DATETIME_IMMUTABLE)]
@@ -112,9 +120,21 @@ class Inscription
         return $this->session;
     }
 
-    public function setSession(Session $session): void
+    /**
+     * Staying in the same session keeps the date the person joined it.
+     */
+    public function assignTo(Session $session, \DateTimeImmutable $joinedAt): void
     {
+        if (isset($this->session) && $this->session === $session) {
+            return;
+        }
         $this->session = $session;
+        $this->sessionJoinedAt = $joinedAt;
+    }
+
+    public function getSessionJoinedAt(): \DateTimeImmutable
+    {
+        return $this->sessionJoinedAt;
     }
 
     public function getStatus(): InscriptionStatus

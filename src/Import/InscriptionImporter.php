@@ -172,7 +172,8 @@ class InscriptionImporter
 
     private function apply(Inscription $inscription, NormalizedSubmission $submission, Session $session): void
     {
-        $inscription->setSession($session);
+        // A new submission joined its session when it was created; a moved one, when it was updated.
+        $inscription->assignTo($session, null === $inscription->getId() ? $submission->createdAt : $submission->updatedAt);
         $inscription->setStatus($submission->status);
         $inscription->setFirstName($submission->firstName);
         $inscription->setLastName($submission->lastName);

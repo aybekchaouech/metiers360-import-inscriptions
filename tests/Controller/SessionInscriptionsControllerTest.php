@@ -62,10 +62,47 @@ final class SessionInscriptionsControllerTest extends WebTestCase
 
         self::assertSame(array_fill(0, 40, 'confirmed'), \array_slice($places, 0, 40));
         self::assertSame(array_fill(0, 6, 'waiting_list'), \array_slice($places, 40));
-        $dates = array_column($people, 'registered_at');
+        $dates = array_column($people, 'joined_session_at');
         $sorted = $dates;
         sort($sorted);
         self::assertSame($sorted, $dates);
+    }
+
+    /**
+     * Found during the debrief: in v2, three people move from Oyonnax to Belley on 19 October.
+     * Ranked by their September registration date, they overtook people confirmed in Belley
+     * since the first import and sent two of them to the waiting list. They now queue from the
+     * day they joined Belley.
+     */
+    public function testMovingToAnotherSessionDoesNotOvertakeThePeopleAlreadyThere(): void
+    {
+        $this->resetDatabase(self::service(EntityManagerInterface::class));
+        $api = self::service(FakeFormApi::class);
+        $importer = self::service(InscriptionImporter::class);
+
+        $api->useDataset('v1');
+        $importer->import();
+        $before = array_column($this->get('/api/sessions/ses_03/inscriptions')['inscriptions'], null, 'id');
+
+        $api->useDataset('v2');
+        $importer->import();
+        $after = array_column($this->get('/api/sessions/ses_03/inscriptions')['inscriptions'], null, 'id');
+
+        // Moussa Simon and Tom Diallo were sent to the waiting list by the bug.
+        self::assertSame('confirmed', $before['sub_3p9wfev96b']['place']);
+        self::assertSame('confirmed', $after['sub_3p9wfev96b']['place']);
+        self::assertSame('confirmed', $after['sub_nvvvya9b3q']['place']);
+        foreach ($before as $id => $inscription) {
+            if ('confirmed' === $inscription['place'] && 'submitted' === $after[$id]['status']) {
+                self::assertSame('confirmed', $after[$id]['place'], "$id was confirmed after the first import.");
+            }
+        }
+
+        // Maxime Clément registered in September for Oyonnax, moved to Belley on 19 October.
+        $moved = $after['sub_haczwpup6e'];
+        self::assertSame('2026-09-20T11:37:00Z', $moved['registered_at']);
+        self::assertSame('2026-10-19T14:55:00Z', $moved['joined_session_at']);
+        self::assertSame('waiting_list', $moved['place']);
     }
 
     public function testDuplicateTakesNoPlaceAndPointsToTheKeptRegistration(): void

@@ -48,7 +48,8 @@ class DuplicateDetector
             if (\count($registrations) < 2) {
                 continue;
             }
-            usort($registrations, static fn (Inscription $a, Inscription $b): int => $a->getSourceCreatedAt() <=> $b->getSourceCreatedAt());
+            // Same order as the places: the registration kept in a session is the first to join it.
+            usort($registrations, static fn (Inscription $a, Inscription $b): int => [$a->getSessionJoinedAt(), $a->getSourceCreatedAt()] <=> [$b->getSessionJoinedAt(), $b->getSourceCreatedAt()]);
 
             /** @var array<string, Inscription> $keptPerSession */
             $keptPerSession = [];

@@ -140,7 +140,7 @@ final class DuplicateDetectorTest extends TestCase
     private function inscription(string $id, string $firstName, ?string $email, string $birthDate, string $registeredAt, ?Session $session = null): Inscription
     {
         $inscription = new Inscription($id);
-        $inscription->setSession($session ?? $this->bourg);
+        $inscription->assignTo($session ?? $this->bourg, new \DateTimeImmutable($registeredAt));
         $inscription->setFirstName($firstName);
         $inscription->setLastName('Test');
         $inscription->setEmail($email);
